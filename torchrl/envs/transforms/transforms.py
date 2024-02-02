@@ -7038,3 +7038,54 @@ class RemoveEmptySpecs(Transform):
         return self._call(tensordict_reset)
 
     forward = _call
+
+
+""" Starting custom transforms"""
+class SymLogTransform(ObservationTransform):
+    def __init__(self,
+        in_keys = None,
+        out_keys = None,
+        in_keys_inv = None,
+        out_keys_inv = None,):
+        if in_keys is None:
+            raise RuntimeError(
+                "Not passing in_keys to ObservationNorm is a deprecated behaviour."
+            )
+
+        if out_keys is None:
+            out_keys = copy(in_keys)
+        if in_keys_inv is None:
+            in_keys_inv = []
+        if out_keys_inv is None:
+            out_keys_inv = copy(in_keys_inv)
+
+        super().__init__(in_keys, out_keys, in_keys_inv, out_keys_inv)
+
+    def _apply_transform(self, obs: torch.Tensor) -> torch.Tensor:
+        return obs.sign()*torch.log(1+obs.abs())
+
+    def _apply_inverse_transform(self, obs: torch.Tensor) -> torch.Tensor:
+        return obs.sign()*(torch.exp(obs.abs())-1)
+
+    @_apply_to_composite
+    def transform_observation_spec(self, observation_spec: TensorSpec) -> TensorSpec:
+        space = observation_spec.space
+        if isinstance(space, ContinuousBox):
+            space.low = self._apply_transform(space.low)
+            space.high = self._apply_transform(space.high)
+        return observation_spec
+
+    @_apply_to_composite_inv
+    def transform_input_spec(self, input_spec: TensorSpec) -> TensorSpec:
+        space = input_spec.space
+        if isinstance(space, ContinuousBox):
+            space.low = self._apply_transform(space.low)
+            space.high = self._apply_transform(space.high)
+        return input_spec
+
+    def _reset(
+            self, tensordict: TensorDictBase, tensordict_reset: TensorDictBase
+    ) -> TensorDictBase:
+        with _set_missing_tolerance(self, True):
+            tensordict_reset = self._call(tensordict_reset)
+        return tensordict_reset

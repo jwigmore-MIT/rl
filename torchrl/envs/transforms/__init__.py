@@ -43,6 +43,7 @@ from .transforms import (
     SignTransform,
     SqueezeTransform,
     StepCounter,
+    SymLogTransform,
     TargetReturn,
     TensorDictPrimer,
     TimeMaxPool,
