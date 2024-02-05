@@ -388,6 +388,13 @@ class MaskedOneHotCategorical(MaskedCategorical):
     def log_prob(self, value: torch.Tensor) -> torch.Tensor:
         return super().log_prob(value.argmax(dim=-1))
 
+    @property
+    def mode(self) -> torch.Tensor:
+        if hasattr(self, "logits"):
+            return (self.logits == self.logits.max(-1, True)[0]).to(torch.long)
+        else:
+            return (self.probs == self.probs.max(-1, True)[0]).to(torch.long)
+
     def rsample(self, sample_shape: Union[torch.Size, Sequence] = None) -> torch.Tensor:
         if sample_shape is None:
             sample_shape = torch.Size([])
