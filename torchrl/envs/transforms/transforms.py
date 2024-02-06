@@ -7064,6 +7064,7 @@ class SymLogTransform(ObservationTransform):
     def _apply_transform(self, obs: torch.Tensor) -> torch.Tensor:
         return obs.sign()*torch.log(1+obs.abs())
 
+
     def _apply_inverse_transform(self, obs: torch.Tensor) -> torch.Tensor:
         return obs.sign()*(torch.exp(obs.abs())-1)
 
@@ -7073,6 +7074,7 @@ class SymLogTransform(ObservationTransform):
         if isinstance(space, ContinuousBox):
             space.low = self._apply_transform(space.low)
             space.high = self._apply_transform(space.high)
+        observation_spec.dtype = torch.float32
         return observation_spec
 
     @_apply_to_composite_inv
@@ -7081,6 +7083,7 @@ class SymLogTransform(ObservationTransform):
         if isinstance(space, ContinuousBox):
             space.low = self._apply_transform(space.low)
             space.high = self._apply_transform(space.high)
+        #input_spec.dtype = torch.float32 #TODO: check if this is necessary
         return input_spec
 
     def _reset(
@@ -7089,3 +7092,42 @@ class SymLogTransform(ObservationTransform):
         with _set_missing_tolerance(self, True):
             tensordict_reset = self._call(tensordict_reset)
         return tensordict_reset
+
+
+class InverseReward(Transform):
+    """Applies the transformation r = 1/(1-r) to the rewards.
+        For unbounded rewards in unbounded environments
+
+    Args:
+        in_keys (List[NestedKey]): input keys
+        out_keys (List[NestedKey], optional): output keys. Defaults to value
+            of ``in_keys``.
+        dtype (torch.dtype, optional): the dtype of the output reward.
+            Defaults to ``torch.float``.
+    """
+
+    def __init__(
+        self,
+        in_keys: Sequence[NestedKey] | None = None,
+        out_keys: Sequence[NestedKey] | None = None,
+    ):
+        if in_keys is None:
+            in_keys = ["reward"]
+        if out_keys is None:
+            out_keys = copy(in_keys)
+        super().__init__(in_keys=in_keys, out_keys=out_keys)
+
+    def _apply_transform(self, reward: torch.Tensor) -> torch.Tensor:
+        # if not reward.shape or reward.shape[-1] != 1:
+        #     raise RuntimeError(
+        #         f"Reward shape last dimension must be singleton, got reward of shape {reward.shape}"
+        #     )
+        return 1/(1-reward)
+
+    @_apply_to_composite
+    def transform_reward_spec(self, reward_spec: TensorSpec) -> TensorSpec:
+        return UnboundedContinuousTensorSpec(
+            dtype=torch.float,
+            device=reward_spec.device,
+            shape=reward_spec.shape,
+        )
