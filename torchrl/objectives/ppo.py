@@ -765,7 +765,7 @@ class ClipPPOLoss(PPOLoss):
 
         gain = torch.stack([gain1, gain2], -1).min(dim=-1)[0]
         td_out = TensorDict({"loss_objective": -gain.mean()}, [])
-
+        td_out.set("advantage", advantage.mean().detach().clone())
         if self.entropy_bonus:
             entropy = self.get_entropy_bonus(dist)
             td_out.set("entropy", entropy.mean().detach())  # for logging
