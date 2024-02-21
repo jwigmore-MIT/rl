@@ -391,7 +391,12 @@ class MaskedOneHotCategorical(MaskedCategorical):
     @property
     def mode(self) -> torch.Tensor:
         if hasattr(self, "logits"):
-            return (self.logits == self.logits.max(-1, True)[0]).to(torch.long)
+            # get the argmax of the logits
+            argmax = self.logits.argmax()
+            argmax_one_hot = torch.zeros_like(self.logits)
+            argmax_one_hot[argmax] = 1
+            return argmax_one_hot.to(torch.long)
+
         else:
             return (self.probs == self.probs.max(-1, True)[0]).to(torch.long)
 
